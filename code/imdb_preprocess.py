@@ -12,7 +12,7 @@ https://github.com/moses-smt/mosesdecoder/raw/master/scripts/tokenizer/tokenizer
 dataset_path='/Tmp/bastienf/aclImdb/'
 
 import numpy
-import cPickle as pkl
+import pickle as pkl
 
 from collections import OrderedDict
 
@@ -27,12 +27,12 @@ tokenizer_cmd = ['./tokenizer.perl', '-l', 'en', '-q', '-']
 
 def tokenize(sentences):
 
-    print 'Tokenizing..',
+    print('Tokenizing..', end=' ')
     text = "\n".join(sentences)
     tokenizer = Popen(tokenizer_cmd, stdin=PIPE, stdout=PIPE)
     tok_text, _ = tokenizer.communicate(text)
     toks = tok_text.split('\n')[:-1]
-    print 'Done'
+    print('Done')
 
     return toks
 
@@ -52,7 +52,7 @@ def build_dict(path):
 
     sentences = tokenize(sentences)
 
-    print 'Building dictionary..',
+    print('Building dictionary..', end=' ')
     wordcount = dict()
     for ss in sentences:
         words = ss.strip().lower().split()
@@ -62,8 +62,8 @@ def build_dict(path):
             else:
                 wordcount[w] += 1
 
-    counts = wordcount.values()
-    keys = wordcount.keys()
+    counts = list(wordcount.values())
+    keys = list(wordcount.keys())
 
     sorted_idx = numpy.argsort(counts)[::-1]
 
@@ -72,7 +72,7 @@ def build_dict(path):
     for idx, ss in enumerate(sorted_idx):
         worddict[keys[ss]] = idx+2  # leave 0 and 1 (UNK)
 
-    print numpy.sum(counts), ' total words ', len(keys), ' unique words'
+    print(numpy.sum(counts), ' total words ', len(keys), ' unique words')
 
     return worddict
 

@@ -246,7 +246,7 @@ def test_cA(learning_rate=0.01, training_epochs=20,
     train_set_x, train_set_y = datasets[0]
 
     # compute number of minibatches for training, validation and testing
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
+    n_train_batches = train_set_x.get_value(borrow=True).shape[0] // batch_size
 
     # allocate symbolic variables for the data
     index = T.lscalar()    # index to a [mini]batch
@@ -283,22 +283,22 @@ def test_cA(learning_rate=0.01, training_epochs=20,
     ############
 
     # go through training epochs
-    for epoch in xrange(training_epochs):
+    for epoch in range(training_epochs):
         # go through trainng set
         c = []
-        for batch_index in xrange(n_train_batches):
+        for batch_index in range(n_train_batches):
             c.append(train_ca(batch_index))
 
         c_array = numpy.vstack(c)
-        print 'Training epoch %d, reconstruction cost ' % epoch, numpy.mean(
-            c_array[0]), ' jacobian norm ', numpy.mean(numpy.sqrt(c_array[1]))
+        print('Training epoch %d, reconstruction cost ' % epoch, numpy.mean(
+            c_array[0]), ' jacobian norm ', numpy.mean(numpy.sqrt(c_array[1])))
 
     end_time = timeit.default_timer()
 
     training_time = (end_time - start_time)
 
-    print >> sys.stderr, ('The code for file ' + os.path.split(__file__)[1] +
-                          ' ran for %.2fm' % ((training_time) / 60.))
+    print(('The code for file ' + os.path.split(__file__)[1] +
+                          ' ran for %.2fm' % ((training_time) / 60.)), file=sys.stderr)
     image = Image.fromarray(tile_raster_images(
         X=ca.W.get_value(borrow=True).T,
         img_shape=(28, 28), tile_shape=(10, 10),

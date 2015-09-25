@@ -1,9 +1,9 @@
 from collections import OrderedDict
 import copy
-import cPickle
+import pickle
 import gzip
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import random
 import stat
 import subprocess
@@ -17,6 +17,7 @@ from theano import tensor as T
 
 # Otherwise the deepcopy fails
 import sys
+from functools import reduce
 sys.setrecursionlimit(1500)
 
 PREFIX = os.getenv(
@@ -66,7 +67,7 @@ def atisfold(fold):
     assert fold in range(5)
     filename = os.path.join(PREFIX, 'atis.fold'+str(fold)+'.pkl.gz')
     f = gzip.open(filename, 'rb')
-    train_set, valid_set, test_set, dicts = cPickle.load(f)
+    train_set, valid_set, test_set, dicts = pickle.load(f)
     return train_set, valid_set, test_set, dicts
 
 
@@ -107,8 +108,8 @@ def download(origin, destination):
     download the corresponding atis file
     from http://www-etud.iro.umontreal.ca/~mesnilgr/atis/
     '''
-    print 'Downloading data from %s' % origin
-    urllib.urlretrieve(origin, destination)
+    print('Downloading data from %s' % origin)
+    urllib.request.urlretrieve(origin, destination)
 
 
 def get_perf(filename, folder):
@@ -234,7 +235,7 @@ class RNNSLU(object):
     def train(self, x, y, window_size, learning_rate):
 
         cwords = contextwin(x, window_size)
-        words = map(lambda x: numpy.asarray(x).astype('int32'), cwords)
+        words = [numpy.asarray(x).astype('int32') for x in cwords]
         labels = y
 
         self.sentence_train(words, labels, learning_rate)
@@ -271,7 +272,7 @@ def main(param=None):
             'nepochs': 60,
             # 60 is recommended
             'savemodel': False}
-    print param
+    print(param)
 
     folder_name = os.path.basename(__file__).split('.')[0]
     folder = os.path.join(os.path.dirname(__file__), folder_name)
@@ -281,8 +282,8 @@ def main(param=None):
     # load the dataset
     train_set, valid_set, test_set, dic = atisfold(param['fold'])
 
-    idx2label = dict((k, v) for v, k in dic['labels2idx'].iteritems())
-    idx2word = dict((k, v) for v, k in dic['words2idx'].iteritems())
+    idx2label = dict((k, v) for v, k in dic['labels2idx'].items())
+    idx2word = dict((k, v) for v, k in dic['words2idx'].items())
 
     train_lex, train_ne, train_y = train_set
     valid_lex, valid_ne, valid_y = valid_set
@@ -294,10 +295,10 @@ def main(param=None):
                               train_y + test_y + valid_y)))
     nsentences = len(train_lex)
 
-    groundtruth_valid = [map(lambda x: idx2label[x], y) for y in valid_y]
-    words_valid = [map(lambda x: idx2word[x], w) for w in valid_lex]
-    groundtruth_test = [map(lambda x: idx2label[x], y) for y in test_y]
-    words_test = [map(lambda x: idx2word[x], w) for w in test_lex]
+    groundtruth_valid = [[idx2label[x] for x in y] for y in valid_y]
+    words_valid = [[idx2word[x] for x in w] for w in valid_lex]
+    groundtruth_test = [[idx2label[x] for x in y] for y in test_y]
+    words_test = [[idx2word[x] for x in w] for w in test_lex]
 
     # instanciate the model
     numpy.random.seed(param['seed'])
@@ -312,7 +313,7 @@ def main(param=None):
     # train with early stopping on validation set
     best_f1 = -numpy.inf
     param['clr'] = param['lr']
-    for e in xrange(param['nepochs']):
+    for e in range(param['nepochs']):
 
         # shuffle
         shuffle([train_lex, train_ne, train_y], param['seed'])
@@ -322,19 +323,17 @@ def main(param=None):
 
         for i, (x, y) in enumerate(zip(train_lex, train_y)):
             rnn.train(x, y, param['win'], param['clr'])
-            print '[learning] epoch %i >> %2.2f%%' % (
-                e, (i + 1) * 100. / nsentences),
-            print 'completed in %.2f (sec) <<\r' % (timeit.default_timer() - tic),
+            print('[learning] epoch %i >> %2.2f%%' % (
+                e, (i + 1) * 100. / nsentences), end=' ')
+            print('completed in %.2f (sec) <<\r' % (timeit.default_timer() - tic), end=' ')
             sys.stdout.flush()
 
         # evaluation // back into the real world : idx -> words
-        predictions_test = [map(lambda x: idx2label[x],
-                            rnn.classify(numpy.asarray(
-                            contextwin(x, param['win'])).astype('int32')))
+        predictions_test = [[idx2label[x] for x in rnn.classify(numpy.asarray(
+                            contextwin(x, param['win'])).astype('int32'))]
                             for x in test_lex]
-        predictions_valid = [map(lambda x: idx2label[x],
-                             rnn.classify(numpy.asarray(
-                             contextwin(x, param['win'])).astype('int32')))
+        predictions_valid = [[idx2label[x] for x in rnn.classify(numpy.asarray(
+                             contextwin(x, param['win'])).astype('int32'))]
                              for x in valid_lex]
 
         # evaluation // compute the accuracy using conlleval.pl
@@ -358,9 +357,9 @@ def main(param=None):
             best_f1 = res_valid['f1']
 
             if param['verbose']:
-                print('NEW BEST: epoch', e,
+                print(('NEW BEST: epoch', e,
                       'valid F1', res_valid['f1'],
-                      'best test F1', res_test['f1'])
+                      'best test F1', res_test['f1']))
 
             param['vf1'], param['tf1'] = res_valid['f1'], res_test['f1']
             param['vp'], param['tp'] = res_valid['p'], res_test['p']
@@ -373,7 +372,7 @@ def main(param=None):
                             folder + '/best.valid.txt'])
         else:
             if param['verbose']:
-                print ''
+                print('')
 
         # learning rate decay if no improvement in 10 epochs
         if param['decay'] and abs(param['be']-param['ce']) >= 10:
@@ -383,10 +382,10 @@ def main(param=None):
         if param['clr'] < 1e-5:
             break
 
-    print('BEST RESULT: epoch', param['be'],
+    print(('BEST RESULT: epoch', param['be'],
           'valid F1', param['vf1'],
           'best test F1', param['tf1'],
-          'with the model', folder)
+          'with the model', folder))
 
 
 if __name__ == '__main__':

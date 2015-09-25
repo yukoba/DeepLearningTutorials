@@ -1,4 +1,4 @@
-import cPickle
+import pickle
 import gzip
 import os
 
@@ -68,9 +68,9 @@ def get_dataset_file(dataset, default_dataset, origin):
             dataset = new_path
 
     if (not os.path.isfile(dataset)) and data_file == default_dataset:
-        import urllib
-        print 'Downloading data from %s' % origin
-        urllib.urlretrieve(origin, dataset)
+        import urllib.request, urllib.parse, urllib.error
+        print('Downloading data from %s' % origin)
+        urllib.request.urlretrieve(origin, dataset)
     return dataset
 
 
@@ -110,8 +110,8 @@ def load_data(path="imdb.pkl", n_words=100000, valid_portion=0.1, maxlen=None,
     else:
         f = open(path, 'rb')
 
-    train_set = cPickle.load(f)
-    test_set = cPickle.load(f)
+    train_set = pickle.load(f)
+    test_set = pickle.load(f)
     f.close()
     if maxlen:
         new_train_set_x = []
@@ -148,7 +148,7 @@ def load_data(path="imdb.pkl", n_words=100000, valid_portion=0.1, maxlen=None,
     test_set_x = remove_unk(test_set_x)
 
     def len_argsort(seq):
-        return sorted(range(len(seq)), key=lambda x: len(seq[x]))
+        return sorted(list(range(len(seq))), key=lambda x: len(seq[x]))
 
     if sort_by_len:
         sorted_index = len_argsort(test_set_x)
